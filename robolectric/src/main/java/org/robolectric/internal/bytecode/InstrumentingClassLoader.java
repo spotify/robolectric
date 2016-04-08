@@ -146,6 +146,8 @@ public class InstrumentingClassLoader extends ClassLoader implements Opcodes {
         ClassInfo classInfo = new ClassInfo(className, classNode);
         if (config.shouldInstrument(classInfo)) {
           bytes = getInstrumentedBytes(classNode, config.containsStubs(classInfo));
+        } else if (classInfo.isParcelableRelated()) {
+          bytes = getPublicClassBytes(classNode, config.containsStubs(classInfo));
         } else {
           bytes = origClassBytes;
         }
@@ -237,6 +239,13 @@ public class InstrumentingClassLoader extends ClassLoader implements Opcodes {
       value = remappedValue;
     }
     return value;
+  }
+
+  private byte[] getPublicClassBytes(ClassNode classNode, boolean containsStubs) {
+    new ClassInstrumentor(classNode, containsStubs).makePublic(classNode);
+    ClassWriter writer = new InstrumentingClassWriter(classNode);
+    classNode.accept(writer);
+    return writer.toByteArray();
   }
 
   private byte[] getInstrumentedBytes(ClassNode classNode, boolean containsStubs) throws ClassNotFoundException {

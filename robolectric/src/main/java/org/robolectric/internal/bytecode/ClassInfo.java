@@ -1,6 +1,7 @@
 package org.robolectric.internal.bytecode;
 
 import java.lang.annotation.Annotation;
+
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
@@ -34,5 +35,9 @@ public class ClassInfo {
 
   public String getName() {
     return className;
+  }
+
+  public boolean isParcelableRelated() {
+    return classNode.interfaces.contains("android/os/Parcelable");
   }
 }
