@@ -197,6 +197,15 @@ public class InstrumentationConfiguration {
   }
 
   /**
+   * Determine if the given {@link ClassInfo} should be made public for dynamic access requirements
+   * @param classInfo the class to check.
+   * @return True if the class should have public visibility
+     */
+  public boolean shouldMakePublic(ClassInfo classInfo) {
+    return (!classInfo.isAnnotation()) && (!classInfo.isInterface()) && (!classInfo.isPublic()) && (classInfo.getName().contains("AutoValue_"));
+  }
+
+  /**
    * Determine if {@link org.robolectric.internal.bytecode.InstrumentingClassLoader} should load a given class.
    *
    * @param   name The fully-qualified class name.

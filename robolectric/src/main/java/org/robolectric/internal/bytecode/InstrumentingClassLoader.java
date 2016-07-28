@@ -170,6 +170,8 @@ public class InstrumentingClassLoader extends ClassLoader implements Opcodes {
         ClassInfo classInfo = new ClassInfo(className, classNode);
         if (config.shouldInstrument(classInfo)) {
           bytes = getInstrumentedBytes(classNode, config.containsStubs(classInfo));
+        } else if (config.shouldMakePublic(classInfo)) {
+          bytes = getPublicClassBytes(classNode, config.containsStubs(classInfo));
         } else {
           bytes = origClassBytes;
         }
@@ -270,6 +272,13 @@ public class InstrumentingClassLoader extends ClassLoader implements Opcodes {
     return writer.toByteArray();
   }
 
+  private byte[] getPublicClassBytes(ClassNode classNode, boolean containsStubs) throws ClassNotFoundException {
+    new ClassInstrumentor(classNode, containsStubs).makeClassPublic();
+    ClassWriter writer = new InstrumentingClassWriter(classNode);
+    classNode.accept(writer);
+    return writer.toByteArray();
+  }
+
   private Map<String, String> convertToSlashes(Map<String, String> map) {
     HashMap<String, String> newMap = new HashMap<>();
     for (Map.Entry<String, String> entry : map.entrySet()) {
@@ -363,7 +372,7 @@ public class InstrumentingClassLoader extends ClassLoader implements Opcodes {
 
     //todo javadoc. Extract blocks to separate methods.
     public void instrument() {
-      makeClassPublic(classNode);
+      makeClassPublic();
       classNode.access = classNode.access & ~ACC_FINAL;
 
       // Need Java version >=7 to allow invokedynamic
@@ -853,8 +862,8 @@ public class InstrumentingClassLoader extends ClassLoader implements Opcodes {
     /**
      * Replaces protected and private class modifiers with public
      */
-    private void makeClassPublic(ClassNode clazz) {
-      clazz.access = (clazz.access | ACC_PUBLIC) & ~(ACC_PROTECTED | ACC_PRIVATE);
+    private void makeClassPublic() {
+      classNode.access = (classNode.access | ACC_PUBLIC) & ~(ACC_PROTECTED | ACC_PRIVATE);
     }
 
     /**
