@@ -32,6 +32,10 @@ public class ClassInfo {
     return false;
   }
 
+  public boolean isPublic() {
+    return (classNode.access & Opcodes.ACC_PUBLIC) != 0;
+  }
+
   public String getName() {
     return className;
   }
