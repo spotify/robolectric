@@ -1,6 +1,7 @@
 package org.robolectric.shadows;
 
 import android.os.Parcel;
+import android.os.Parcelable;
 import android.text.TextUtils;
 import android.util.Pair;
 import org.robolectric.annotation.Implementation;
@@ -14,6 +15,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.LinkedHashMap;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static android.os.Build.VERSION_CODES.KITKAT_WATCH;
+import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR2;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static org.robolectric.RuntimeEnvironment.castNativePtr;
 
@@ -33,6 +36,38 @@ public class ShadowParcel {
   @RealObject private Parcel realObject;
   private static final Map<Long, ByteBuffer> NATIVE_PTR_TO_PARCEL = new LinkedHashMap<>();
   private static long nextNativePtr = 1; // this needs to start above 0, which is a magic number to Parcel
+
+  @Implementation(maxSdk = JELLY_BEAN_MR2)
+  public <T extends Parcelable> T readParcelable(ClassLoader loader) throws IllegalAccessException, NoSuchFieldException, ClassNotFoundException {
+    Parcelable.Creator<?> creator = readParcelableCreator(loader);
+    if (creator == null) {
+      return null;
+    }
+
+    if (creator instanceof Parcelable.ClassLoaderCreator<?>) {
+      Parcelable.ClassLoaderCreator<?> classLoaderCreator = (Parcelable.ClassLoaderCreator<?>) creator;
+      return (T) classLoaderCreator.createFromParcel(realObject, loader);
+    }
+    return (T) creator.createFromParcel(realObject);
+  }
+
+  @Implementation @HiddenApi
+  public final Parcelable.Creator<?> readParcelableCreator(ClassLoader loader) throws ClassNotFoundException, NoSuchFieldException, IllegalAccessException {
+    //note: calling `readString` will also consume the string, and increment the data-pointer.
+    //which is exactly what we need, since we do not call the real `readParcelableCreator`.
+    final String name = realObject.readString();
+    if (name == null) return null;
+
+    ClassLoader parcelableClassLoader = (loader == null ? getClass().getClassLoader() : loader);
+    Class<?> parcelableClass = Class.forName(name, false /* initialize */, parcelableClassLoader);
+    Field field = parcelableClass.getField("CREATOR");
+    //this is a fix for JDK8<->Android VM incompatibility:
+    //Apparently, JDK will not allow access to a public field if its
+    //class is not visible (private or package-private) from the call-site.
+    field.setAccessible(true);
+
+    return (Parcelable.Creator<?>) field.get(null/*static method does not have an instance*/);
+  }
 
   @Implementation
   public void writeByteArray(byte[] b, int offset, int len) {
